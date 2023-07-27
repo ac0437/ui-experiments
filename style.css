@@ -1,0 +1,71 @@
+:root {
+  --pencil-eraser:  #dbb7bb;
+  --pencil-ferrule: linear-gradient( to bottom, #bcc6cc, #eee, #bcc6cc);
+  --pencil-body: #EDB560;
+  --pencil-wood: #EBBD9C;
+  --pencil-point: #5c6274;
+}
+
+.pencil {
+  zoom: 300%;
+  rotate: 10deg;
+  position: relative;
+  left: 10px;
+  top: 19px;
+  width: 10px;
+}
+.eraser {
+  width: 10px;
+  height: 6px;
+  background-color: var(--pencil-eraser);
+  border-top-left-radius: 8px;
+  border-top-right-radius: 5px;
+}
+.ferrule {
+  width: 10px;
+  height: 12px;
+  background: var(--pencil-ferrule);
+}
+.pencil-body {
+  width: 10px;
+  height: 120px;
+  background-color: var(--pencil-body);
+  position: relative;
+  text-align: center;
+  clip-path: polygon(0 0, 100% 0, 99.5% 100%, .5% 100%);
+}
+.two {
+  border-radius: 10px;
+  position: relative;
+  top: 39px;
+  background-color: #000;
+  color: var(--pencil-body);
+  font-size: 4px;
+  rotate: -90deg;
+}
+.pencil-body-text {
+  color: #000;
+  font-size: 4px;
+  rotate: -90deg;
+  text-transform: uppercase;
+  white-space: nowrap;
+  position: relative;
+  top: 18px;
+}
+.wood {
+  width: 10px;
+  height: 7px;
+  background-color: var(--pencil-wood);
+  clip-path: polygon(0 0, 100% 0, 70% 100%, 30% 100%);
+  position: relative;
+  bottom: 0.2px;
+}
+.point {
+  width: 4px;
+  height: 4px;
+  background-color: var(--pencil-point);
+  clip-path: polygon(0 0, 50% 100%, 100% 0);
+  position: relative;
+  left: 3px;
+  bottom: 0.8px
+}
