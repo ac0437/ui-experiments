@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cube Twister 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg1:#0f1226; --bg2:#1d2350; --panel:rgba(255,255,255,0.07); --line:rgba(255,255,255,0.14);
+    --text:#eef0ff; --muted:#a6abd6; --accent:#ffd500; --good:#2ee59d;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;overflow:hidden;font-family:'Space Grotesk',system-ui,sans-serif;color:var(--text);
+    background:radial-gradient(ellipse at 50% 40%, var(--bg2), var(--bg1) 70%);}
+  #stage{position:fixed;inset:0;touch-action:none}
+  canvas{display:block}
+  header{position:fixed;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;
+    padding:14px 18px;pointer-events:none;gap:12px;flex-wrap:wrap}
+  h1{margin:0;font-size:20px;letter-spacing:.5px;font-weight:700}
+  h1 span{color:var(--accent)}
+  .stats{display:flex;gap:10px;pointer-events:auto}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:6px 14px;text-align:center;min-width:84px;backdrop-filter:blur(6px)}
+  .stat b{display:block;font-size:20px;font-variant-numeric:tabular-nums}
+  .stat small{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:1px}
+  .bar{position:fixed;left:50%;transform:translateX(-50%);bottom:14px;display:flex;flex-direction:column;gap:8px;align-items:center;width:min(720px,96vw)}
+  .row{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+  button{font-family:inherit;font-size:14px;font-weight:600;color:var(--text);background:var(--panel);border:1px solid var(--line);
+    border-radius:10px;padding:8px 12px;cursor:pointer;backdrop-filter:blur(6px);transition:transform .08s, background .15s}
+  button:hover{background:rgba(255,255,255,0.15)}
+  button:active{transform:scale(.95)}
+  button.primary{background:var(--accent);color:#1a1a1a;border-color:transparent}
+  button.primary:hover{background:#ffe04d}
+  button.mv{min-width:44px;padding:8px 6px}
+  #status{position:fixed;top:72px;left:50%;transform:translateX(-50%);color:var(--muted);font-size:14px;text-align:center;pointer-events:none;padding:0 12px}
+  #help{position:fixed;top:64px;right:14px;width:260px;background:rgba(15,18,38,.92);border:1px solid var(--line);border-radius:14px;padding:14px 16px;font-size:13px;line-height:1.5;display:none}
+  #help.show{display:block}
+  #help h3{margin:0 0 6px;font-size:15px}
+  #help kbd{background:rgba(255,255,255,.12);border-radius:4px;padding:0 5px;font-family:inherit}
+  #win{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(5,6,20,.55);z-index:5}
+  #win.show{display:flex}
+  .card{background:#171b3d;border:1px solid var(--line);border-radius:18px;padding:26px 32px;text-align:center;max-width:90vw;animation:pop .35s ease}
+  .card h2{margin:0 0 8px;font-size:30px;color:var(--good)}
+  .card p{margin:4px 0;color:var(--muted)}
+  .card .big{font-size:24px;color:var(--text);font-weight:700}
+  @keyframes pop{from{transform:scale(.8);opacity:0}to{transform:scale(1);opacity:1}}
+  #confetti{position:fixed;inset:0;pointer-events:none;z-index:6}
+  #hintBox{display:none;align-items:center;gap:10px;background:rgba(255,213,0,0.12);border:1px solid rgba(255,213,0,0.45);
+    border-radius:12px;padding:8px 12px;font-size:14px;max-width:96vw}
+  #hintBox.show{display:flex}
+  #hintBox .tok{font-size:22px;font-weight:700;color:var(--accent);min-width:40px;text-align:center}
+  #hintBox button{padding:6px 10px;font-size:13px}
+  button.hint{border-color:rgba(255,213,0,0.6)}
+  @media (max-width:600px){ h1{font-size:16px} .stat{min-width:64px;padding:4px 8px} .stat b{font-size:16px} #status{top:96px} button.mv{min-width:38px;font-size:13px} }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<header>
+  <h1>Cube <span>Twister</span> 3D</h1>
+  <div class="stats">
+    <div class="stat"><b id="time">0:00.0</b><small>Time</small></div>
+    <div class="stat"><b id="moves">0</b><small>Moves</small></div>
+    <div class="stat"><b id="best">—</b><small>Best</small></div>
+  </div>
+</header>
+<div id="status">Press <b>Scramble</b> to start. Drag a sticker to turn a layer, drag the background to look around.</div>
+
+<div id="help">
+  <h3>How to play</h3>
+  <p><b>Turn a layer:</b> press on a sticker and drag in the direction you want it to move.</p>
+  <p><b>Rotate view:</b> drag anywhere off the cube.</p>
+  <p><b>Keyboard:</b> <kbd>U</kbd> <kbd>D</kbd> <kbd>L</kbd> <kbd>R</kbd> <kbd>F</kbd> <kbd>B</kbd> turn faces clockwise, hold <kbd>Shift</kbd> for counter‑clockwise. <kbd>M</kbd> <kbd>E</kbd> <kbd>S</kbd> turn middle slices. <kbd>Ctrl/⌘+Z</kbd> undo. <kbd>H</kbd> hint.</p>
+  <p><b>Hints:</b> 💡 works out a short solution from wherever your cube is and shows the next move, flashing the layer to turn. “R” means turn that face clockwise as if you were looking straight at it; R' is counter‑clockwise; R2 is a half turn.</p>
+  <p><b>Colors:</b> white top (U), green front (F), red right (R).</p>
+  <p>The timer starts on your first move after a scramble. Using Auto‑solve doesn’t count toward your best time.</p>
+</div>
+
+<div class="bar">
+  <div id="hintBox"><span class="tok" id="hintTok"></span><span id="hintText"></span><button id="btnDoHint">Do it</button></div>
+  <div class="row" id="moveRow"></div>
+  <div class="row">
+    <button class="primary" id="btnScramble">Scramble</button>
+    <button class="hint" id="btnHint">💡 Hint</button>
+    <button id="btnUndo">Undo</button>
+    <button id="btnSolve">Auto‑solve</button>
+    <button id="btnReset">Reset</button>
+    <button id="btnView">Reset view</button>
+    <button id="btnHelp">?</button>
+  </div>
+</div>
+
+<div id="win"><div class="card">
+  <h2>Solved! 🎉</h2>
+  <p class="big" id="winStats"></p>
+  <p id="winBest"></p>
+  <div style="margin-top:16px;display:flex;gap:8px;justify-content:center">
+    <button class="primary" id="btnAgain">Play again</button>
+    <button id="btnClose">Admire it</button>
+  </div>
+</div></div>
+<canvas id="confetti"></canvas>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+  'use strict';
+  // ---------- Scene ----------
+  const stage = document.getElementById('stage');
+  const renderer = new THREE.WebGLRenderer({antialias:true, alpha:true});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  stage.appendChild(renderer.domElement);
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
+
+  scene.add(new THREE.AmbientLight(0xffffff, 0.75));
+  const key = new THREE.DirectionalLight(0xffffff, 0.55); key.position.set(5, 8, 6); scene.add(key);
+  const fill = new THREE.DirectionalLight(0xffffff, 0.25); fill.position.set(-6, -3, -4); scene.add(fill);
+
+  // ---------- Camera orbit ----------
+  const DEFAULT_VIEW = {theta: Math.PI/4 * 0.9, phi: 1.0, radius: 10.5};
+  const view = Object.assign({}, DEFAULT_VIEW);
+  function updateCamera(){
+    const {theta, phi, radius} = view;
+    camera.position.set(radius*Math.sin(phi)*Math.sin(theta), radius*Math.cos(phi), radius*Math.sin(phi)*Math.cos(theta));
+    camera.lookAt(0,0,0);
+  }
+  function resize(){
+    const w = window.innerWidth, h = window.innerHeight;
+    renderer.setSize(w, h);
+    camera.aspect = w/h;
+    view.radius = w < h ? 10.5 * Math.min(1.6, h/w*0.85) : 10.5;
+    camera.updateProjectionMatrix();
+    updateCamera();
+  }
+  window.addEventListener('resize', resize);
+
+  // ---------- Cube ----------
+  const FACE_COLORS = { R:0xc41e3a, L:0xff6a13, U:0xffffff, D:0xffd500, F:0x00a651, B:0x0051ba };
+  const bodyMat = new THREE.MeshLambertMaterial({color:0x111111});
+  const bodyGeo = new THREE.BoxGeometry(0.97, 0.97, 0.97);
+  const stickerGeo = (function(){
+    // rounded square sticker
+    const s = 0.40, r = 0.10, sh = new THREE.Shape();
+    sh.moveTo(-s+r,-s); sh.lineTo(s-r,-s); sh.quadraticCurveTo(s,-s,s,-s+r);
+    sh.lineTo(s,s-r); sh.quadraticCurveTo(s,s,s-r,s); sh.lineTo(-s+r,s);
+    sh.quadraticCurveTo(-s,s,-s,s-r); sh.lineTo(-s,-s+r); sh.quadraticCurveTo(-s,-s,-s+r,-s);
+    return new THREE.ShapeGeometry(sh);
+  })();
+  const stickerMats = {};
+  for (const k in FACE_COLORS) stickerMats[k] = new THREE.MeshLambertMaterial({color:FACE_COLORS[k], emissive:FACE_COLORS[k], emissiveIntensity:0.18});
+
+  const FACES = [
+    {name:'R', n:[1,0,0],  rot:[0, Math.PI/2, 0]},
+    {name:'L', n:[-1,0,0], rot:[0,-Math.PI/2, 0]},
+    {name:'U', n:[0,1,0],  rot:[-Math.PI/2,0,0]},
+    {name:'D', n:[0,-1,0], rot:[Math.PI/2,0,0]},
+    {name:'F', n:[0,0,1],  rot:[0,0,0]},
+    {name:'B', n:[0,0,-1], rot:[0,Math.PI,0]},
+  ];
+
+  const cubeGroup = new THREE.Group(); scene.add(cubeGroup);
+  let cubies = [];
+  function buildCube(){
+    cubies.forEach(c => cubeGroup.remove(c));
+    cubies = [];
+    for (let x=-1;x<=1;x++) for (let y=-1;y<=1;y++) for (let z=-1;z<=1;z++){
+      if (!x && !y && !z) continue;
+      const cubie = new THREE.Mesh(bodyGeo, bodyMat);
+      cubie.userData.stickers = [];
+      const p = {x,y,z};
+      for (const f of FACES){
+        const [nx,ny,nz] = f.n;
+        if ((nx && p.x===nx) || (ny && p.y===ny) || (nz && p.z===nz)){
+          const st = new THREE.Mesh(stickerGeo, stickerMats[f.name]);
+          st.position.set(nx*0.487, ny*0.487, nz*0.487);
+          st.rotation.set(f.rot[0], f.rot[1], f.rot[2]);
+          st.userData = {face:f.name, normal:new THREE.Vector3(nx,ny,nz), cubie};
+          cubie.add(st);
+          cubie.userData.stickers.push(st);
+        }
+      }
+      cubie.position.set(x,y,z);
+      cubeGroup.add(cubie);
+      cubies.push(cubie);
+    }
+  }
+  buildCube();
+
+  // ---------- Moves ----------
+  // A move = {axis:'x'|'y'|'z', layer:-1|0|1, angle:±PI/2}
+  const H = Math.PI/2;
+  const MOVE_DEFS = {
+    R:{axis:'x',layer:1,angle:-H}, L:{axis:'x',layer:-1,angle:H}, M:{axis:'x',layer:0,angle:H},
+    U:{axis:'y',layer:1,angle:-H}, D:{axis:'y',layer:-1,angle:H}, E:{axis:'y',layer:0,angle:H},
+    F:{axis:'z',layer:1,angle:-H}, B:{axis:'z',layer:-1,angle:H}, S:{axis:'z',layer:0,angle:-H},
+  };
+  function moveName(m){
+    for (const k in MOVE_DEFS){
+      const d = MOVE_DEFS[k];
+      if (d.axis===m.axis && d.layer===m.layer) return k + (Math.sign(d.angle)===Math.sign(m.angle) ? '' : "'");
+    }
+    return '?';
+  }
+  const inverse = m => ({axis:m.axis, layer:m.layer, angle:-m.angle});
+
+  const pivot = new THREE.Group(); cubeGroup.add(pivot);
+  const queue = [];
+  let current = null;
+  const tmpM = new THREE.Matrix4();
+
+  function enqueue(move, opts){
+    queue.push(Object.assign({move, duration:220, kind:'user'}, opts||{}));
+  }
+  function busy(){ return !!current || queue.length > 0; }
+
+  function startNext(){
+    const job = queue.shift();
+    if (!job) return;
+    clearHighlight();
+    const {axis, layer} = job.move;
+    pivot.rotation.set(0,0,0); pivot.updateMatrixWorld();
+    const members = cubies.filter(c => Math.round(c.position[axis]) === layer);
+    members.forEach(c => pivot.attach(c));
+    current = {job, members, t0: performance.now()};
+  }
+  function finishCurrent(){
+    const {job, members} = current;
+    pivot.rotation[job.move.axis] = job.move.angle;
+    pivot.updateMatrixWorld();
+    members.forEach(c => {
+      cubeGroup.attach(c);
+      c.position.set(Math.round(c.position.x), Math.round(c.position.y), Math.round(c.position.z));
+      tmpM.makeRotationFromQuaternion(c.quaternion);
+      const e = tmpM.elements;
+      for (let i=0;i<16;i++) e[i] = Math.round(e[i]);
+      c.quaternion.setFromRotationMatrix(tmpM);
+    });
+    pivot.rotation.set(0,0,0);
+    current = null;
+    onMoveDone(job);
+  }
+  function stepAnimation(now){
+    if (!current && queue.length) startNext();
+    if (current){
+      const {job} = current;
+      let t = (now - current.t0) / job.duration;
+      if (t >= 1){ finishCurrent(); if (queue.length) startNext(); }
+      else {
+        const e = t<0.5 ? 2*t*t : 1 - Math.pow(-2*t+2, 2)/2;
+        pivot.rotation.set(0,0,0);
+        pivot.rotation[job.move.axis] = job.move.angle * e;
+      }
+    }
+  }
+
+  // ---------- Solved check ----------
+  const tmpV = new THREE.Vector3();
+  function isSolved(){
+    const seen = {};
+    for (const c of cubies){
+      for (const st of c.userData.stickers){
+        tmpV.copy(st.userData.normal).applyQuaternion(c.quaternion);
+        const k = Math.round(tmpV.x)+','+Math.round(tmpV.y)+','+Math.round(tmpV.z);
+        if (seen[k] === undefined) seen[k] = st.userData.face;
+        else if (seen[k] !== st.userData.face) return false;
+      }
+    }
+    return true;
+  }
+
+  // ---------- Game state ----------
+  // state: 'fresh' | 'ready' (scrambled, waiting) | 'running' | 'solved' | 'auto'
+  let state = 'fresh';
+  let history = [];      // every move applied since last reset (scramble + user)
+  let userMoves = 0;
+  let startTime = 0, elapsed = 0;
+  let best = null;
+  try { const b = localStorage.getItem('cubeTwisterBest'); if (b) best = JSON.parse(b); } catch(e){}
+
+  const $ = id => document.getElementById(id);
+  function fmt(ms){
+    const s = ms/1000, m = Math.floor(s/60);
+    return m + ':' + (s - m*60).toFixed(1).padStart(4,'0');
+  }
+  function renderStats(){
+    $('moves').textContent = userMoves;
+    $('time').textContent = fmt(elapsed);
+    $('best').textContent = best ? fmt(best.time) : '—';
+  }
+  function setStatus(html){ $('status').innerHTML = html; }
+
+  function userMove(move){
+    if (state === 'auto') return;
+    enqueue(move, {kind:'user'});
+  }
+
+  function onMoveDone(job){
+    if (job.kind === 'scramble'){
+      history.push(job.move);
+      if (!queue.some(q => q.kind==='scramble')){
+        state = 'ready';
+        setStatus('Scrambled! Your timer starts on your first move. Good luck 🍀');
+      }
+      return;
+    }
+    if (job.kind === 'auto'){
+      if (!queue.some(q => q.kind==='auto')){
+        history = []; state = 'fresh'; elapsed = 0; userMoves = 0; renderStats();
+        setStatus('Auto‑solved. Press <b>Scramble</b> to try it yourself!');
+      }
+      return;
+    }
+    // user or undo
+    if (job.kind === 'undo') history.pop(); else history.push(job.move);
+    if (!queue.length) hideHint();
+    if (state === 'solved' || state === 'fresh'){
+      if (job.kind === 'user') { userMoves++; renderStats(); }
+      setStatus('Last move: <b>' + moveName(job.move) + '</b> &nbsp;·&nbsp; free play (scramble to race the clock)');
+      return;
+    }
+    if (state === 'ready'){ state = 'running'; startTime = performance.now(); }
+    userMoves++;
+    renderStats();
+    setStatus('Last move: <b>' + moveName(job.move) + '</b>');
+    if (state === 'running' && isSolved()) win();
+  }
+
+  function win(){
+    state = 'solved';
+    elapsed = performance.now() - startTime;
+    renderStats();
+    let msg = '';
+    if (!best || elapsed < best.time){
+      const hadBest = !!best;
+      best = {time: elapsed, moves: userMoves};
+      try { localStorage.setItem('cubeTwisterBest', JSON.stringify(best)); } catch(e){}
+      msg = hadBest ? '🏆 New personal best!' : '🏆 First solve recorded as your best!';
+    } else msg = 'Best: ' + fmt(best.time) + ' in ' + best.moves + ' moves';
+    renderStats();
+    $('winStats').textContent = fmt(elapsed) + '  ·  ' + userMoves + ' moves' + (hintsUsed ? '  ·  ' + hintsUsed + (hintsUsed === 1 ? ' hint' : ' hints') : '');
+    $('winBest').textContent = msg;
+    $('win').classList.add('show');
+    setStatus('Solved! 🎉');
+    confetti();
+  }
+
+  function scramble(){
+    if (busy()) return;
+    if (!isSolved()) { resetCube(); }
+    history = []; userMoves = 0; elapsed = 0; hintsUsed = 0; hideHint(); renderStats();
+    state = 'scrambling';
+    setStatus('Scrambling…');
+    let last = null;
+    const names = ['R','L','U','D','F','B'];
+    for (let i=0;i<22;i++){
+      let n;
+      do { n = names[Math.floor(Math.random()*6)]; } while (last && MOVE_DEFS[n].axis === MOVE_DEFS[last].axis);
+      last = n;
+      const d = MOVE_DEFS[n];
+      const r = Math.random();
+      const angle = r < 0.5 ? d.angle : -d.angle;
+      enqueue({axis:d.axis, layer:d.layer, angle}, {kind:'scramble', duration:70});
+      if (r > 0.85) enqueue({axis:d.axis, layer:d.layer, angle}, {kind:'scramble', duration:70});
+    }
+  }
+  function undo(){
+    if (state === 'auto' || state === 'scrambling' || busy()) return;
+    if (!history.length) return;
+    if (state === 'ready') return; // don't undo the scramble
+    enqueue(inverse(history[history.length-1]), {kind:'undo'});
+  }
+  function autoSolve(){
+    if (busy() || !history.length || isSolved()) return;
+    state = 'auto';
+    hideHint();
+    setStatus('Auto‑solving… (rewinding every move)');
+    const n = history.length;
+    const dur = Math.max(60, Math.min(200, 4000 / n));
+    for (let i=n-1;i>=0;i--) enqueue(inverse(history[i]), {kind:'auto', duration:dur});
+  }
+  function resetCube(){
+    if (current) return;
+    queue.length = 0;
+    hideHint();
+    buildCube();
+    history = []; userMoves = 0; elapsed = 0; state = 'fresh';
+    renderStats();
+    setStatus('Fresh cube. Press <b>Scramble</b> to start.');
+  }
+
+  // ---------- Input: drag to turn / orbit ----------
+  const raycaster = new THREE.Raycaster();
+  const ndc = new THREE.Vector2();
+  let drag = null;
+  const dom = renderer.domElement;
+  dom.style.touchAction = 'none';
+
+  function pick(e){
+    const r = dom.getBoundingClientRect();
+    ndc.set(((e.clientX - r.left)/r.width)*2-1, -((e.clientY - r.top)/r.height)*2+1);
+    raycaster.setFromCamera(ndc, camera);
+    const hits = raycaster.intersectObjects(cubies, true);
+    return hits[0] || null;
+  }
+  dom.addEventListener('pointerdown', e => {
+    if (e.button !== undefined && e.button !== 0) return;
+    dom.setPointerCapture(e.pointerId);
+    const hit = (state === 'auto' || state === 'scrambling') ? null : pick(e);
+    if (hit){
+      const obj = hit.object;
+      const cubie = obj.userData.cubie || obj;
+      const n = hit.face.normal.clone().transformDirection(obj.matrixWorld);
+      const ax = Math.abs(n.x) > Math.abs(n.y) ? (Math.abs(n.x) > Math.abs(n.z) ? 'x' : 'z') : (Math.abs(n.y) > Math.abs(n.z) ? 'y' : 'z');
+      const normal = new THREE.Vector3(); normal[ax] = Math.sign(n[ax]);
+      drag = {type:'turn', cubie, normal, point: hit.point.clone(), x:e.clientX, y:e.clientY, done:false};
+    } else {
+      drag = {type:'orbit', x:e.clientX, y:e.clientY};
+    }
+  });
+  dom.addEventListener('pointermove', e => {
+    if (!drag) return;
+    if (drag.type === 'orbit'){
+      const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+      drag.x = e.clientX; drag.y = e.clientY;
+      view.theta -= dx * 0.008;
+      view.phi = Math.max(0.2, Math.min(Math.PI - 0.2, view.phi - dy * 0.008));
+      updateCamera();
+      return;
+    }
+    if (drag.done) return;
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    const len = Math.hypot(dx, dy);
+    if (len < 12) return;
+    if (busy()) return; // wait for current turn, keep the gesture alive
+    const w = dom.clientWidth/2, h = dom.clientHeight/2;
+    const p0 = drag.point.clone().project(camera);
+    let bestT = null, bestDot = 0;
+    for (const a of ['x','y','z']){
+      if (drag.normal[a] !== 0) continue;
+      const t = new THREE.Vector3(); t[a] = 1;
+      const p1 = drag.point.clone().add(t).project(camera);
+      let sx = (p1.x - p0.x) * w, sy = -(p1.y - p0.y) * h;
+      const sl = Math.hypot(sx, sy) || 1; sx/=sl; sy/=sl;
+      const d = (sx*dx + sy*dy)/len;
+      if (Math.abs(d) > Math.abs(bestDot)){ bestDot = d; bestT = t; }
+    }
+    if (!bestT) return;
+    const tdir = bestT.multiplyScalar(Math.sign(bestDot));
+    const rotAxis = drag.normal.clone().cross(tdir);
+    const axis = Math.abs(rotAxis.x) > 0.5 ? 'x' : Math.abs(rotAxis.y) > 0.5 ? 'y' : 'z';
+    const sign = Math.sign(rotAxis[axis]);
+    const layer = Math.round(drag.cubie.position[axis]);
+    userMove({axis, layer, angle: sign * H});
+    drag.done = true;
+  });
+  const endDrag = () => { drag = null; };
+  dom.addEventListener('pointerup', endDrag);
+  dom.addEventListener('pointercancel', endDrag);
+  dom.addEventListener('wheel', e => {
+    e.preventDefault();
+    view.radius = Math.max(7, Math.min(22, view.radius * (1 + Math.sign(e.deltaY)*0.08)));
+    updateCamera();
+  }, {passive:false});
+
+  // ---------- Keyboard & buttons ----------
+  window.addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z'){ e.preventDefault(); undo(); return; }
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    const k = e.key.toUpperCase();
+    if (k === 'H'){ requestHint(); return; }
+    if (MOVE_DEFS[k]){
+      const d = MOVE_DEFS[k];
+      userMove({axis:d.axis, layer:d.layer, angle: e.shiftKey ? -d.angle : d.angle});
+    }
+  });
+
+  const row = $('moveRow');
+  ['U','D','L','R','F','B'].forEach(n => {
+    [n, n+"'"].forEach(label => {
+      const b = document.createElement('button');
+      b.className = 'mv'; b.textContent = label;
+      b.addEventListener('click', () => {
+        const d = MOVE_DEFS[n];
+        userMove({axis:d.axis, layer:d.layer, angle: label.endsWith("'") ? -d.angle : d.angle});
+      });
+      row.appendChild(b);
+    });
+  });
+  $('btnScramble').onclick = scramble;
+  $('btnUndo').onclick = undo;
+  $('btnSolve').onclick = autoSolve;
+  $('btnReset').onclick = resetCube;
+  $('btnView').onclick = () => { view.theta = DEFAULT_VIEW.theta; view.phi = DEFAULT_VIEW.phi; resize(); };
+  $('btnHelp').onclick = () => $('help').classList.toggle('show');
+  $('btnAgain').onclick = () => { $('win').classList.remove('show'); scramble(); };
+  $('btnClose').onclick = () => $('win').classList.remove('show');
+
+  // ---------- Hints (two-phase solver, run in a background worker) ----------
+  const CUBEJS = 'https://cdn.jsdelivr.net/npm/cubejs@1.3.2/lib/';
+  const solver = {ready:false, failed:false, worker:null, pending:null, mainThread:false};
+  let plan = null;          // {tokens:[...], states:[...]} — states[i] is the cube before tokens[i]
+  let hintsUsed = 0, reqId = 0, currentHint = null;
+
+  // Read the cube as a 54-character facelet string (URFDLB order) for the solver.
+  function facelets(){
+    const raw = new Array(54), colorToLetter = {}, v = new THREE.Vector3();
+    for (const c of cubies){
+      const x = Math.round(c.position.x), y = Math.round(c.position.y), z = Math.round(c.position.z);
+      for (const st of c.userData.stickers){
+        v.copy(st.userData.normal).applyQuaternion(c.quaternion);
+        const nx = Math.round(v.x), ny = Math.round(v.y), nz = Math.round(v.z);
+        let f, row, col;
+        if (ny === 1){ f=0; row=z+1; col=x+1; }
+        else if (nx === 1){ f=1; row=1-y; col=1-z; }
+        else if (nz === 1){ f=2; row=1-y; col=x+1; }
+        else if (ny === -1){ f=3; row=1-z; col=x+1; }
+        else if (nx === -1){ f=4; row=1-y; col=z+1; }
+        else { f=5; row=1-y; col=1-x; }
+        raw[f*9 + row*3 + col] = st.userData.face;
+        if (row === 1 && col === 1) colorToLetter[st.userData.face] = 'URFDLB'[f];
+      }
+    }
+    return raw.map(c => colorToLetter[c]).join('');
+  }
+
+  function startSolver(){
+    const src =
+      "importScripts('" + CUBEJS + "cube.js','" + CUBEJS + "solve.js');" +
+      "Cube.initSolver();postMessage({ready:true});" +
+      "onmessage=function(e){try{var s=e.data.state;var sol=Cube.fromString(s).solve().trim();" +
+      "var t=sol?sol.split(/\\s+/):[];var st=[s];var d=Cube.fromString(s);" +
+      "for(var i=0;i<t.length;i++){d.move(t[i]);st.push(d.asString());}" +
+      "postMessage({id:e.data.id,tokens:t,states:st});}catch(err){postMessage({id:e.data.id,error:String(err)});}};";
+    try {
+      const w = new Worker(URL.createObjectURL(new Blob([src], {type:'text/javascript'})));
+      w.onmessage = e => {
+        if (e.data.ready){ solver.ready = true; if (solver.pending) runSolve(); }
+        else onSolved(e.data);
+      };
+      w.onerror = ev => { if (ev.preventDefault) ev.preventDefault(); w.terminate(); solver.worker = null; solver.ready = false; fallbackMain(); };
+      solver.worker = w;
+    } catch (e) { fallbackMain(); }
+  }
+  // If workers aren't allowed, load the solver on the page itself.
+  function fallbackMain(){
+    if (solver.mainThread) return;
+    solver.mainThread = true;
+    const load = s => new Promise((res, rej) => { const t = document.createElement('script'); t.src = CUBEJS + s; t.onload = res; t.onerror = rej; document.head.appendChild(t); });
+    load('cube.js').then(() => load('solve.js')).then(() => {
+      setTimeout(() => { window.Cube.initSolver(); solver.ready = true; if (solver.pending) runSolve(); }, 30);
+    }).catch(() => {
+      solver.failed = true;
+      if (solver.pending){ solver.pending = null; showHintMsg('Couldn’t load the hint engine. Check your connection and reload.'); }
+    });
+  }
+  function runSolve(){
+    const req = solver.pending; if (!req) return;
+    if (solver.worker){ solver.worker.postMessage({id:req.id, state:req.state}); return; }
+    setTimeout(() => {
+      try {
+        const C = window.Cube, sol = C.fromString(req.state).solve().trim();
+        const tokens = sol ? sol.split(/\s+/) : [], states = [req.state], d = C.fromString(req.state);
+        tokens.forEach(t => { d.move(t); states.push(d.asString()); });
+        onSolved({id:req.id, tokens, states});
+      } catch (err) { onSolved({id:req.id, error:String(err)}); }
+    }, 20);
+  }
+  function onSolved(data){
+    const req = solver.pending;
+    if (!req || data.id !== req.id) return;
+    solver.pending = null;
+    if (data.error){ showHintMsg('The hint engine got confused — try again.'); return; }
+    plan = {tokens:data.tokens, states:data.states};
+    if (!busy() && facelets() === req.state) showHint(plan.tokens[0]);
+    else hideHint();
+  }
+  function requestHint(){
+    if (state === 'auto' || state === 'scrambling' || busy()) return;
+    if (isSolved()){ showHintMsg('Already solved — nothing to do! 🎉'); return; }
+    const cur = facelets();
+    if (plan){
+      const i = plan.states.indexOf(cur);
+      if (i >= 0 && i < plan.tokens.length){ showHint(plan.tokens[i]); return; }
+    }
+    if (solver.failed){ showHintMsg('Couldn’t load the hint engine. Check your connection and reload.'); return; }
+    solver.pending = {id: ++reqId, state: cur};
+    if (!solver.ready){ showHintMsg('Warming up the hint engine… (takes a few seconds the first time)'); return; }
+    showHintMsg('Thinking…');
+    runSolve();
+  }
+
+  const COLOR_NAMES = {R:'red', L:'orange', U:'white', D:'yellow', F:'green', B:'blue'};
+  const FACE_WORDS = {R:'right', L:'left', U:'top', D:'bottom', F:'front', B:'back'};
+  function centerColor(letter){
+    const d = MOVE_DEFS[letter], p = {x:0, y:0, z:0}; p[d.axis] = d.layer;
+    const c = cubies.find(c => Math.round(c.position.x)===p.x && Math.round(c.position.y)===p.y && Math.round(c.position.z)===p.z);
+    return COLOR_NAMES[c.userData.stickers[0].userData.face];
+  }
+  function showHintMsg(text){
+    currentHint = null;
+    $('hintTok').textContent = '💡';
+    $('hintText').innerHTML = text;
+    $('btnDoHint').style.display = 'none';
+    $('hintBox').classList.add('show');
+  }
+  function showHint(tok){
+    const letter = tok[0], mod = tok.slice(1);
+    const dir = mod === "'" ? 'counter‑clockwise ↺' : mod === '2' ? 'a half turn (180°)' : 'clockwise ↻';
+    const tail = mod === '2' ? '' : ' <span style="color:var(--muted)">(as if looking straight at it)</span>';
+    currentHint = tok;
+    $('hintTok').textContent = tok;
+    $('hintText').innerHTML = 'Turn the <b>' + FACE_WORDS[letter] + '</b> face (' + centerColor(letter) + ' center) <b>' + dir + '</b>' + tail;
+    $('btnDoHint').style.display = '';
+    $('hintBox').classList.add('show');
+    if (state === 'running' || state === 'ready') hintsUsed++;
+    highlight(letter);
+  }
+  function hideHint(){ currentHint = null; $('hintBox').classList.remove('show'); clearHighlight(); }
+  function doHint(){
+    if (!currentHint || busy() || state === 'auto') return;
+    const d = MOVE_DEFS[currentHint[0]], mod = currentHint.slice(1);
+    const angle = mod === "'" ? -d.angle : d.angle;
+    const m = {axis:d.axis, layer:d.layer, angle};
+    userMove(m); if (mod === '2') userMove(m);
+  }
+
+  // Flash the layer that the hint turns.
+  const hlMats = {};
+  for (const k in FACE_COLORS) hlMats[k] = stickerMats[k].clone();
+  let highlighted = [], hlUntil = 0;
+  function highlight(letter){
+    clearHighlight();
+    const d = MOVE_DEFS[letter];
+    cubies.filter(c => Math.round(c.position[d.axis]) === d.layer).forEach(c =>
+      c.userData.stickers.forEach(st => { highlighted.push(st); st.material = hlMats[st.userData.face]; }));
+    hlUntil = performance.now() + 3000;
+  }
+  function clearHighlight(){
+    highlighted.forEach(st => { st.material = stickerMats[st.userData.face]; st.scale.set(1,1,1); });
+    highlighted = [];
+  }
+  function pulseHighlight(now){
+    if (!highlighted.length) return;
+    if (now > hlUntil){ clearHighlight(); return; }
+    const s = 0.5 + 0.5*Math.sin(now/110);
+    for (const k in hlMats) hlMats[k].emissiveIntensity = 0.2 + 0.7*s;
+    highlighted.forEach(st => st.scale.set(0.8 + 0.3*s, 0.8 + 0.3*s, 1));
+  }
+
+  $('btnHint').onclick = requestHint;
+  $('btnDoHint').onclick = doHint;
+  setTimeout(startSolver, 600);
+
+  // ---------- Confetti ----------
+  const cc = $('confetti'), cx = cc.getContext('2d');
+  let parts = [];
+  function confetti(){
+    cc.width = innerWidth; cc.height = innerHeight;
+    const cols = Object.values(FACE_COLORS).map(c => '#' + c.toString(16).padStart(6,'0'));
+    parts = Array.from({length:160}, () => ({
+      x: innerWidth/2, y: innerHeight/2, vx:(Math.random()-0.5)*16, vy:-Math.random()*16-4,
+      r: Math.random()*Math.PI, vr:(Math.random()-0.5)*0.3, s: 6+Math.random()*6, c: cols[Math.floor(Math.random()*cols.length)], life: 0
+    }));
+  }
+  function drawConfetti(){
+    if (!parts.length) return;
+    cx.clearRect(0,0,cc.width,cc.height);
+    parts.forEach(p => { p.vy += 0.45; p.x += p.vx; p.y += p.vy; p.r += p.vr; p.life++;
+      cx.save(); cx.translate(p.x,p.y); cx.rotate(p.r); cx.fillStyle = p.c; cx.fillRect(-p.s/2,-p.s/4,p.s,p.s/2); cx.restore(); });
+    parts = parts.filter(p => p.y < cc.height + 40 && p.life < 400);
+    if (!parts.length) cx.clearRect(0,0,cc.width,cc.height);
+  }
+
+  // ---------- Loop ----------
+  function loop(now){
+    stepAnimation(now);
+    pulseHighlight(now);
+    if (state === 'running'){ elapsed = now - startTime; $('time').textContent = fmt(elapsed); }
+    if (state === 'fresh' && !drag && !busy()) { view.theta += 0.0015; updateCamera(); }
+    drawConfetti();
+    renderer.render(scene, camera);
+    requestAnimationFrame(loop);
+  }
+  resize();
+  renderStats();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
